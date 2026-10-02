@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProjectStatus {
+  DRAFT
+  UPLOADING
+  ANALYZING
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+enum Scene {
+  STUDIO
+  STREETWEAR
+  LUXURY
+  MINIMAL
+  CAFE
+  BEACH
+  WINTER
+  GYM
+  NIGHT_CITY
+  FESTIVAL
+}
+
+enum ImagePreset {
+  INSTAGRAM_POST
+  INSTAGRAM_STORY
+  WEBSITE_HERO
+  AMAZON
+  SHOPIFY
+}
+
+model User {
+  id        String    @id @default(cuid())
+  clerkId   String    @unique
+  email     String    @unique
+  name      String?
+  credits   Int       @default(10)
+  projects  Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Project {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  status            ProjectStatus   @default(DRAFT)
+  detectedCategory  String?
+  detectedColor     String?
+  detectedMaterial  String?
+  detectedStyle     String?
+  detectedProduct   String?
+  prompt            String?
+  errorMessage      String?
+  originalImage     OriginalImage?
+  generatedImages   GeneratedImage[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([userId, updatedAt])
+  @@index([userId, status])
+}
+
+model OriginalImage {
+  id         String   @id @default(cuid())
+  projectId  String   @unique
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  publicId   String   @unique
+  secureUrl  String
+  format     String
+  width      Int
+  height     Int
+  bytes      Int
+  createdAt  DateTime @default(now())
+}
+
+model GeneratedImage {
+  id          String           @id @default(cuid())
+  projectId   String
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  publicId    String?          @unique // Cloudinary AI variants are derived URLs, not standalone assets.
+  secureUrl   String
+  scene       Scene
+  variation   Int
+  prompt      String
+  isFavorite  Boolean          @default(false)
+  presets     ImageTransformation[]
+  createdAt   DateTime         @default(now())
+
+  @@unique([projectId, scene, variation])
+  @@index([projectId, createdAt])
+  @@index([isFavorite, createdAt])
+}
+
+model ImageTransformation {
+  id               String        @id @default(cuid())
+  generatedImageId String
+  generatedImage   GeneratedImage @relation(fields: [generatedImageId], references: [id], onDelete: Cascade)
+  preset           ImagePreset
+  secureUrl        String
+  width            Int
+  height           Int
+  createdAt        DateTime      @default(now())
+
+  @@unique([generatedImageId, preset])
+}
